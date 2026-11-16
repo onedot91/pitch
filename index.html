@@ -175,7 +175,7 @@
   <section class="side">
     <div class="word" id="word">소리를 내요</div>
     <div class="num empty" id="num">?<small>Hz</small></div>
-    <button id="btn" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5L21 12L6 20.5Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg><span>시작</span></button>
+    <button id="btn" type="button" aria-label="시작"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5L21 12L6 20.5Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg><span>시작</span></button>
     <div class="msg" id="msg" role="status"></div>
   </section>
 </main>
@@ -377,7 +377,7 @@
     }
     node.connect(analyser);
     timer = setInterval(tick, TICK);
-    btn.innerHTML = STOP_HTML; btn.classList.add('running');
+    btn.innerHTML = STOP_HTML; btn.classList.add('running'); btn.setAttribute('aria-label', '멈춤');
   }
 
   function stop() {
@@ -385,7 +385,7 @@
     stream && stream.getTracks().forEach(t => t.stop());
     audioCtx && audioCtx.close();
     audioCtx = null;
-    btn.innerHTML = START_HTML; btn.classList.remove('running');
+    btn.innerHTML = START_HTML; btn.classList.remove('running'); btn.setAttribute('aria-label', '시작');
   }
 
   btn.addEventListener('click', () => audioCtx ? stop() : start());
