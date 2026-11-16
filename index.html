@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>소리의 높낮이</title>
+<title>소리의 높낮이 측정하기</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap" rel="stylesheet">
@@ -116,7 +116,7 @@
 <svg class="deco c" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 2L58 34L88 14L70 44L98 52L66 60L84 90L54 70L46 98L40 66L10 84L30 56L2 46L34 40L16 12L44 30Z"/></svg>
 
 <main class="app">
-  <h1>소리의 높낮이</h1>
+  <h1>소리의 높낮이 측정하기</h1>
 
   <section class="stage" aria-label="소리 높낮이 그래프">
     <canvas id="graph"></canvas>
@@ -141,7 +141,7 @@
   const TICK = 30;                        // 30ms마다 측정
   const HISTORY = 270;                    // 약 8초
 
-  const COLORS = { hi: '#e8462b', lo: '#1f3fa8', ink: '#161616' };
+  const COLORS = { hi: '#e8462b', mid: '#f5b90f', lo: '#1f3fa8', ink: '#161616' };
 
   const canvas = document.getElementById('graph');
   const ctx = canvas.getContext('2d');
@@ -155,9 +155,14 @@
   let recent = [], lastRms = 0, holdOff = 0, held = null;
 
   const band = f => f >= SPLIT ? 'hi' : 'lo';
+  // 그래프 높이: 낮은 소리는 노란 띠 아래(파랑), 높은 소리는 노란 띠 위(빨강)에만 놓이게
+  const norm = f => (Math.log(f) - Math.log(FMIN)) / (Math.log(FMAX) - Math.log(FMIN));
+  const tS = norm(SPLIT), GAP = 0.07;
+  const toY = (t, h) => h - Math.min(1, Math.max(0, t)) * h;
   const yOf = (f, h) => {
-    const t = (Math.log(f) - Math.log(FMIN)) / (Math.log(FMAX) - Math.log(FMIN));
-    return h - Math.min(1, Math.max(0, t)) * h;
+    let t = Math.min(1, Math.max(0, norm(f)));
+    t = t < tS ? (t / tS) * (tS - GAP) : tS + GAP + ((t - tS) / (1 - tS)) * (1 - tS - GAP);
+    return toY(t, h);
   };
 
   // YIN 방식 음높이 찾기
@@ -249,8 +254,8 @@
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // 두 개의 색 띠 (종이를 오려 붙인 듯 살짝 물결)
-    const ySplit = yOf(SPLIT, h);
+    // 빨강(높은 소리) · 노랑(경계 띠) · 파랑(낮은 소리), 종이를 오려 붙인 듯 살짝 물결
+    const yMidTop = toY(tS + GAP * 0.7, h), yMidBot = toY(tS - GAP * 0.7, h);
     const wave = (y, amp, seed) => {
       ctx.lineTo(w, y);
       for (let i = 12; i >= 0; i--) {
@@ -259,14 +264,14 @@
       }
     };
     ctx.fillStyle = COLORS.lo; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = COLORS.mid;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(w, 0); wave(yMidBot, 6, 1); ctx.closePath(); ctx.fill();
     ctx.fillStyle = COLORS.hi;
-    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(w, 0); wave(ySplit, 9, 2); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(w, 0); wave(yMidTop, 6, 3); ctx.closePath(); ctx.fill();
 
     // 지나간 소리: 하얀 종이 띠 (가까운 소리끼리는 이어서)
     const step = (w - 70) / (HISTORY - 1);
     const r = Math.max(5, Math.min(10, h / 45));
-    ctx.strokeStyle = ctx.fillStyle = '#fff';
-    ctx.lineWidth = r * 2;
     ctx.lineCap = ctx.lineJoin = 'round';
     ctx.beginPath();
     let prev = -1;
@@ -278,7 +283,8 @@
       else { ctx.moveTo(x, y); ctx.lineTo(x + 0.1, y); }
       prev = i;
     }
-    ctx.stroke();
+    ctx.strokeStyle = COLORS.ink; ctx.lineWidth = r * 2 + 6; ctx.stroke();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = r * 2; ctx.stroke();
 
     // 지금 소리: 검은 별
     const last = history[HISTORY - 1];
