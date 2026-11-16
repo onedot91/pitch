@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>소리의 높낮이 측정하기</title>
+<link rel="icon" href="favicon.svg?v=1" type="image/svg+xml">
+<meta name="theme-color" content="#f3ead8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap" rel="stylesheet">
@@ -220,15 +222,15 @@
   </div>
 </dialog>
 
-<script src="tracker.js?v=7"></script>
+<script src="tracker.js?v=8"></script>
 <script>
 (() => {
   // 높낮이 기준 (Hz)
   // 솔(392)과 라(440) 사이를 경계로: 도레미파솔 = 낮은 소리, 라부터 = 높은 소리 (칼림바·붐웨커 공통)
   const SPLIT = 415;
   const FMIN = 150, FMAX = 1500;           // 그래프 아래끝/위끝
-  const TICK = 30;                        // 30ms마다 측정
-  const HISTORY = 270;                    // 약 8초
+  const TICK = 20;                        // 20ms마다 측정 (짧은 붐웨커 소리도 잡게)
+  const HISTORY = 400;                    // 약 8초
 
   const COLORS = { hi: '#e8462b', mid: '#f5b90f', lo: '#1f3fa8', ink: '#161616' };
 
@@ -241,6 +243,7 @@
 
   let audioCtx, analyser, stream, buf, timer;
   let history = new Array(HISTORY).fill(null);
+  let noteOf = new Array(HISTORY).fill(-1);   // 각 칸이 어느 음의 시작 부분인지
   let tracker;
 
   const band = f => f >= SPLIT ? 'hi' : 'lo';
@@ -256,9 +259,12 @@
 
   function tick() {
     analyser.getFloatTimeDomainData(buf);
-    const { val, fresh } = tracker.step(buf, audioCtx.sampleRate);
+    const { val, fresh, note, rewrite } = tracker.step(buf, audioCtx.sampleRate);
+    // 음의 시작 부분은 높이가 정해진 뒤에 한꺼번에 채워 그림
+    if (rewrite) for (let i = 0; i < HISTORY; i++) if (noteOf[i] === note) history[i] = val;
     if (fresh) show(val);
     history.push(val); history.shift();
+    noteOf.push(note); noteOf.shift();
     draw();
   }
 
@@ -303,7 +309,7 @@
       const f = history[i];
       if (f == null) continue;
       const x = 20 + i * step, y = yOf(f, h);
-      if (prev >= 0 && i - prev <= 20) ctx.lineTo(x, y);
+      if (prev >= 0 && i - prev <= 30) ctx.lineTo(x, y);
       else { ctx.moveTo(x, y); ctx.lineTo(x + 0.1, y); }
       prev = i;
     }

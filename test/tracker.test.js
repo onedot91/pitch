@@ -1,7 +1,7 @@
 // 가짜 악기 소리로 측정기를 시험함.  실행: node test/tracker.test.js
 const { createPitchTracker } = require('../tracker.js');
 
-const SR = 48000, WIN = 2048, TICK = 0.03, SPLIT = 415;
+const SR = 48000, WIN = 2048, TICK = 0.02, SPLIT = 415;
 
 // 시드 고정 난수 (매번 같은 결과)
 let seed = 1;
@@ -53,7 +53,10 @@ function run(raw) {
   const out = [];
   const hop = Math.round(TICK * SR);
   for (let end = WIN; end <= x.length; end += hop) {
-    out.push({ t: end / SR, ...tr.step(x.subarray(end - WIN, end), SR) });
+    const r = tr.step(x.subarray(end - WIN, end), SR);
+    // 페이지와 똑같이: rewrite면 같은 음의 앞부분을 다시 그림
+    if (r.rewrite) for (const o of out) if (o.note === r.note) o.val = r.val;
+    out.push({ t: end / SR, ...r });
   }
   return out;
 }
@@ -235,6 +238,26 @@ for (const f0 of [120, 210, 300]) {
   const out = run(x).filter(o => o.t > 15 && o.t < 20.3);
   const right = out.filter(o => o.val != null && Math.abs(o.val / 220 - 1) < 0.1).length;
   check('20초 동안 계속 목소리', right / out.length > 0.7, { coveredLast5s: Math.round(right / out.length * 100) + '%' });
+}
+
+// 14) 짧게 '탁' 치고 끝나는 붐웨커 (울림이 0.1~0.2초)
+{
+  let missed = [], wrong = 0, total = 0;
+  for (const tau of [0.02, 0.03, 0.05, 0.08]) for (const loud of [1, 0.3]) {
+    const notes = [262, 330, 392, 440, 494, 523];
+    const sp = 0.5;
+    const x = render(notes.length * sp + 0.5, x => {
+      noise(x, 0.002);
+      notes.forEach((f, k) => {
+        const t = 0.3 + k * sp;
+        sine(x, f, 0.35 * loud, t, tau, 0.4); sine(x, f * 2, 0.15 * loud, t, tau * 0.7, 0.3); sine(x, f * 3, 0.08 * loud, t, tau * 0.5, 0.2);
+        noise(x, 0.5 * loud, t, 0.03, 0.006);
+      });
+    });
+    const s = score(run(x), notes.map((f, k) => [f, 0.3 + k * sp]), sp);
+    for (const r of s) { total++; if (r.right === 0) missed.push(r.f + '@tau' + tau + (loud < 1 ? 'q' : '')); wrong += r.wrong; }
+  }
+  check('짧은 붐웨커', missed.length === 0 && wrong === 0, { missed: missed.length + '/' + total, examples: missed.slice(0, 6), wrong });
 }
 
 let fail = 0;
