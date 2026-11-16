@@ -132,22 +132,35 @@
     font-size: var(--l);
   }
   dialog::backdrop { background: rgba(22, 22, 22, .6); }
-  .guide { padding: 32px 56px 48px; display: flex; flex-direction: column; gap: 16px; }
-  .guide-head { display: flex; justify-content: flex-end; }
-  .steps { list-style: none; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 28px 48px; }
-  .steps li { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; position: relative; counter-increment: step; }
-  .steps { counter-reset: step; }
-  /* 순서 번호: 도움말 버튼처럼 검은 동그라미 + 노란 그림자 */
+  .guide { padding: 28px 48px 40px; display: flex; flex-direction: column; gap: 24px; }
+  .guide-head { display: flex; align-items: center; justify-content: space-between; }
+  .guide-head h2 { font-size: var(--l); font-weight: 400; }
+  #helpClose { width: 64px; height: 64px; }
+  /* 단계 카드: 흰 종이를 오려 붙인 느낌 */
+  .steps { list-style: none; padding: 0 0 0 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 36px 40px; counter-reset: step; }
+  .steps li {
+    position: relative; counter-increment: step;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+    padding: 28px 20px 22px;
+    background: #fff;
+    border-radius: var(--cut);
+    box-shadow: 6px 8px 0 var(--ink);
+    text-align: center; line-height: 1.1;
+  }
+  /* 순서 번호: 카드 모서리에 붙인 스티커 */
   .steps li::before {
     content: counter(step);
-    position: absolute; top: 0; left: max(0px, calc(50% - 170px));
-    width: 1.5em; height: 1.5em; padding-bottom: .08em;
+    position: absolute; top: -18px; left: -14px;
+    width: 1.3em; height: 1.3em; padding-bottom: .08em;
     display: grid; place-items: center;
     border-radius: 46% 54% 50% 50% / 52% 46% 54% 48%;
     background: var(--ink); color: var(--paper);
-    box-shadow: 4px 5px 0 var(--yellow);
+    box-shadow: 4px 5px 0 var(--red);
   }
-  .steps svg { width: 100%; max-width: 200px; height: auto; display: block; }
+  .steps li:nth-child(2)::before { box-shadow: 4px 5px 0 var(--yellow); }
+  .steps li:nth-child(3)::before { box-shadow: 4px 5px 0 var(--green); }
+  .steps li:nth-child(4)::before { box-shadow: 4px 5px 0 var(--blue); }
+  .steps svg { height: 120px; width: auto; max-width: 100%; display: block; }
   .steps span { white-space: nowrap; }
   .steps .hi { color: var(--red); }
   .steps .lo { color: var(--blue); }
@@ -159,9 +172,10 @@
     .stage { min-height: 300px; }
     .deco.c { display: none; }
     button.help { width: 64px; height: 64px; }
-    .guide { padding: 24px 20px 32px; gap: 24px; }
-    .steps { grid-template-columns: 1fr; gap: 32px; }
-    .steps svg { max-width: 220px; }
+    .guide { padding: 20px 20px 32px; gap: 24px; }
+    #helpClose { width: 52px; height: 52px; }
+    .steps { grid-template-columns: 1fr; gap: 36px; padding-left: 10px; }
+    .steps li::before { left: -10px; }
   }
 </style>
 </head>
@@ -193,7 +207,7 @@
 
 <dialog id="help" aria-label="사용법">
   <div class="guide">
-    <div class="guide-head"><button type="button" id="helpClose" class="help" aria-label="닫기"><svg viewBox="0 0 40 40" width="34" height="34" aria-hidden="true"><path d="M9 9L31 31M31 9L9 31" stroke="currentColor" stroke-width="7" stroke-linecap="round"/></svg></button></div>
+    <div class="guide-head"><h2>사용법</h2><button type="button" id="helpClose" class="help" aria-label="닫기"><svg viewBox="0 0 40 40" width="34" height="34" aria-hidden="true"><path d="M9 9L31 31M31 9L9 31" stroke="currentColor" stroke-width="7" stroke-linecap="round"/></svg></button></div>
     <ol class="steps">
       <li>
         <svg viewBox="0 0 240 180" aria-hidden="true">
