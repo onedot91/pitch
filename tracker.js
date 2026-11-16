@@ -5,11 +5,12 @@ function createPitchTracker() {
   // 거의 사라지고, 배음이 많은 목소리는 걸러낸 뒤에도 원래 높이가 그대로 남음.
   const FLOOR = 80, CEIL = 2600;
   let recent = [], smooth = [], lastRms = 0, holdOff = 0, held = null;
-  // 교실 바탕 소리 크기: 최근 약 8초 중 가장 조용했던 순간.
-  // 계속 말하거나 처음부터 소리가 나도 목소리를 '바탕 소리'로 착각하지 않도록 위쪽을 막아 둠.
-  const ROOM_LEN = 256, ROOM_MIN = 0.0015, ROOM_MAX = 0.012;
+  // 교실 바탕 소리 크기 (시끄러운 교실 대비): 최근 약 6초 동안 배운 소리 크기 중 아래쪽 20% 지점.
+  // 또렷한 높이를 따라가는 중(내 칼림바·'아~')에는 배우지 않으므로, 친구들 떠드는 소리만 바탕으로 배움.
+  // 바탕 소리보다 1.6배 이상 커야 그리므로, 크롬북 가까이에서 내는 내 소리만 잡힘.
+  const ROOM_LEN = 200, ROOM_MIN = 0.0015, ROOM_MAX = 0.03;
   const roomHist = new Float32Array(ROOM_LEN).fill(ROOM_MAX);
-  let roomPos = 0;
+  let roomPos = 0, roomCount = 0;
 
   // YIN 방식 음높이 찾기
   function detect(x, sr, quiet) {
@@ -59,10 +60,13 @@ function createPitchTracker() {
       for (let i = 0; i < buf.length; i++) rms += buf[i] * buf[i];
       rms = Math.sqrt(rms / buf.length);
 
-      roomHist[roomPos] = rms; roomPos = (roomPos + 1) % ROOM_LEN;
-      let room = ROOM_MAX;
-      for (let i = 0; i < ROOM_LEN; i++) if (roomHist[i] < room) room = roomHist[i];
-      room = Math.max(ROOM_MIN, room);
+      // 또렷한 높이를 따라가는 중이 아닐 때만 '교실 소리'로 배움 (내 '아~' 소리나 칼림바는 배우지 않음)
+      if (held == null) { roomHist[roomPos] = rms; roomPos = (roomPos + 1) % ROOM_LEN; if (roomCount < ROOM_LEN) roomCount++; }
+      let room = ROOM_MIN;
+      if (roomCount) {
+        const sorted = Array.from(roomHist.subarray(0, roomCount)).sort((a, b) => a - b);
+        room = Math.min(ROOM_MAX, Math.max(ROOM_MIN, sorted[Math.floor(roomCount * 0.2)]));
+      }
       // 민감도: 바탕 소리보다 1.6배 이상 크면 악기·목소리로 봄.
       // 다만 2.5배가 안 되는 작은 소리는 '주기가 아주 뚜렷할 때만' 믿음 (작은 낮은 도는 잡고, 잡음은 거름)
       const loudEnough = Math.max(0.002, room * 1.6);

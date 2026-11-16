@@ -206,17 +206,18 @@ for (const [name, f0] of [['어른 남자 목소리', 120], ['어른 여자 목�
   check('높은 칼림바 + 잡음', low === 0, { lowReadings: low, of: total });
 }
 
-// 12) '시작'을 누를 때 이미 소리를 내고 있던 경우 (앞에 조용한 순간이 없음)
+// 12) '시작'을 누를 때 이미 소리를 내고 있던 경우:
+//     처음 소리는 교실 소리로 볼 수 있지만, 잠깐 쉬고 다시 내는 소리부터는 잡혀야 함
 for (const f0 of [120, 210, 300]) {
-  const x = render(3, x => voice(x, f0, 0, 3));
-  const out = run(x).filter(o => o.t > 0.3);
+  const x = render(6.5, x => { noise(x, 0.002); voice(x, f0, 0, 2.5); voice(x, f0, 3.3, 3); });
+  const out = run(x).filter(o => o.t > 3.6 && o.t < 6.2);
   const right = out.filter(o => o.val != null && Math.abs(o.val / f0 - 1) < 0.1).length;
-  check('처음부터 소리 ' + f0 + 'Hz', right / out.length > 0.7, { covered: Math.round(right / out.length * 100) + '%' });
+  check('처음부터 소리 ' + f0 + 'Hz → 쉬고 다시', right / out.length > 0.7, { coveredSecond: Math.round(right / out.length * 100) + '%' });
 }
 
-// 13) 쉬지 않고 20초 동안 말하기·노래하기: 끝까지 잡혀야 함
+// 13) 20초 동안 계속 말하기·노래하기 (2.5초마다 숨 쉬는 짧은 쉼): 끝까지 잡혀야 함
 {
-  const x = render(21, x => { noise(x, 0.002); voice(x, 220, 0.5, 20); });
+  const x = render(21, x => { noise(x, 0.002); for (let t = 0.5; t < 20.3; t += 2.9) voice(x, 220, t, 2.5); });
   const out = run(x).filter(o => o.t > 15 && o.t < 20.3);
   const right = out.filter(o => o.val != null && Math.abs(o.val / 220 - 1) < 0.1).length;
   check('20초 동안 계속 목소리', right / out.length > 0.7, { coveredLast5s: Math.round(right / out.length * 100) + '%' });
@@ -234,6 +235,33 @@ for (const f0 of [120, 210, 300]) {
     results.push({ fund, room, caught: s.filter(r => r.right > 0).length + '/4', wrong: s.reduce((a, r) => a + r.wrong, 0) });
   }
   check('작게 들어온 낮은 도', results.every(r => r.caught === '4/4' && r.wrong === 0), results);
+}
+
+// 15) 시끄러운 교실: 친구들 여러 명이 떠드는 소리(멀리) + 내 칼림바(가까이)
+{
+  const babble = (x, t0, dur, level) => {
+    // 4명이 서로 다른 높이로 말하고, 말과 말 사이에 쉼
+    const kids = [[230, 0.0], [270, 0.37], [310, 0.71], [190, 0.19]];
+    for (const [f0, off] of kids) {
+      for (let t = t0 + off; t < t0 + dur - 0.5; t += 0.9 + (f0 % 7) * 0.05) voice(x, f0 * (1 + 0.1 * Math.sin(t * 3)), t, 0.45, level);
+    }
+  };
+  const results = [];
+  for (const level of [0.01, 0.02]) {
+    const notes = [262, 392, 523, 784, 1047, 262];
+    const sp = 1.0;
+    // 앞 3초는 떠드는 소리만, 그 뒤로 떠드는 소리 + 내 칼림바
+    const x = render(3 + notes.length * sp + 0.5, x => {
+      noise(x, 0.002); babble(x, 0, 3 + notes.length * sp + 0.5, level);
+      notes.forEach((f, k) => kalimba(x, f, 3.2 + k * sp, 0.6));
+    });
+    const out = run(x);
+    const chatter = out.filter(o => o.t > 0.5 && o.t < 3);
+    const chatterDrawn = chatter.filter(o => o.val != null).length / chatter.length;
+    const s = score(out, notes.map((f, k) => [f, 3.2 + k * sp]), sp);
+    results.push({ level, chatterDrawn: Math.round(chatterDrawn * 100) + '%', kalimba: s.filter(r => r.right > 0).length + '/' + notes.length, wrongDuringNotes: s.reduce((a, r) => a + r.wrong, 0) });
+  }
+  check('시끄러운 교실', results.every(r => parseInt(r.chatterDrawn) <= 15 && r.kalimba === '6/6'), results);
 }
 
 let fail = 0;
