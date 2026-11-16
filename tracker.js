@@ -51,8 +51,8 @@ function createPitchTracker() {
 
       // 교실 바탕 소리: 조용해지면 바로 따라 내려가고, 시끄러우면 아주 천천히 올라감
       room = room === 0 || rms < room ? rms : room * 1.001;
-      const loudEnough = Math.max(0.002, room * 2.5);   // 악기 소리로 볼 크기
-      const stillRinging = Math.max(0.001, room * 1.6); // 울림이 남아 있다고 볼 크기
+      const loudEnough = Math.max(0.002, room * 1.6);   // 악기 소리로 볼 크기
+      const stillRinging = Math.max(0.001, room * 1.25); // 울림이 남아 있다고 볼 크기
 
       // 악기를 튕기는 순간(소리가 갑자기 커질 때)에는 높은 잡음이 섞이므로 잠깐 건너뜀
       if (rms > loudEnough && rms > lastRms * 1.8) { holdOff = 2; recent = []; held = null; }

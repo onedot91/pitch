@@ -34,7 +34,21 @@ const boom = (x, f, t0, loud = 1) => {
   noise(x, 0.4 * loud, t0, 0.04, 0.01);
 };
 
-function run(x) {
+// 페이지와 같은 거르개: 180Hz 아래를 깎는 고역 통과 필터 2단 (Web Audio BiquadFilter와 같은 식)
+function highpass(input, f0 = 180, q = Math.SQRT1_2) {
+  const w = 2 * Math.PI * f0 / SR, al = Math.sin(w) / (2 * q), cw = Math.cos(w);
+  const a0 = 1 + al, b0 = (1 + cw) / 2 / a0, b1 = -(1 + cw) / a0, b2 = b0, a1 = -2 * cw / a0, a2 = (1 - al) / a0;
+  const y = new Float32Array(input.length);
+  let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+  for (let i = 0; i < input.length; i++) {
+    const v = b0 * input[i] + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+    x2 = x1; x1 = input[i]; y2 = y1; y1 = v; y[i] = v;
+  }
+  return y;
+}
+
+function run(raw) {
+  const x = highpass(highpass(raw));
   const tr = createPitchTracker();
   const out = [];
   const hop = Math.round(TICK * SR);
@@ -148,6 +162,20 @@ function check(name, ok, detail) { results.push({ name, ok, detail }); }
   const out = run(x).filter(o => o.t > 0.5 && o.t < 6.1);
   const ok = out.filter(o => o.val != null && Math.abs(o.val / 330 - 1) < 0.06).length;
   check('길게 노래하기', ok / out.length > 0.95, { covered: Math.round(ok / out.length * 100) + '%' });
+}
+
+// 9) 웅웅거림이 큰 교실에서 작게 친 칼림바 (브라우저에서 놓친 경우)
+{
+  const notes = [262, 392, 440, 523, 262, 1047];
+  const sp = 0.8;
+  const x = render(notes.length * sp + 0.5, x => {
+    hum(x, 100, 0.03); noise(x, 0.001);
+    notes.forEach((f, k) => { const t = 0.3 + k * sp; sine(x, f, 0.06, t, 0.4, 0.78); sine(x, f * 5.9, 0.12, t, 0.05, 0.3); });
+  });
+  const out = run(x);
+  const s = score(out, notes.map((f, k) => [f, 0.3 + k * sp]), sp);
+  const low = out.filter(o => o.val != null && o.val < 200).length;
+  check('큰 웅웅거림 + 작은 칼림바', low === 0 && s.every(r => r.right > 0 && r.wrong === 0), { lowReadings: low, notes: s.map(r => r.f + ':' + r.right + '/' + r.wrong) });
 }
 
 let fail = 0;
