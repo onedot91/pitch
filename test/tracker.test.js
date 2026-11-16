@@ -264,6 +264,22 @@ for (const f0 of [120, 210, 300]) {
   check('시끄러운 교실', results.every(r => parseInt(r.chatterDrawn) <= 15 && r.kalimba === '6/6'), results);
 }
 
+// 16) 같은 시간만큼 울린 음은 세기가 달라도 선 길이가 비슷해야 함
+{
+  // 세게(×1) ~ 살살(×0.15). 바탕 소리와 거의 같은 아주 작은 소리는 끝을 들을 수 없어 짧아질 수 있음
+  const plays = [[262, 1], [262, 0.3], [523, 1], [523, 0.15], [784, 0.6], [392, 0.2], [1047, 0.4]];
+  const sp = 1.6;
+  const x = render(plays.length * sp + 0.5, x => {
+    noise(x, 0.003);
+    // 실제 칼림바처럼 천천히 잦아드는 울림 (중간에 끊지 않음)
+    plays.forEach(([f, loud], k) => { const t = 0.3 + k * sp; sine(x, f, 0.25 * loud, t, 0.5, sp - 0.05); sine(x, f * 5.9, 0.6 * loud, t, 0.05, 0.3); });
+  });
+  const s = score(run(x), plays.map(([f], k) => [f, 0.3 + k * sp]), sp);
+  const lens = s.map(r => r.len);
+  const ratio = Math.max(...lens) / Math.min(...lens);
+  check('같은 길이 음 → 같은 선 길이', ratio < 1.2 && s.every(r => r.wrong === 0), { lengths: plays.map(([f, l], k) => f + 'Hz×' + l + '=' + lens[k] + 's'), ratio: ratio.toFixed(2) });
+}
+
 let fail = 0;
 for (const r of results) {
   console.log((r.ok ? 'PASS' : 'FAIL') + '  ' + r.name + '  ' + JSON.stringify(r.detail));

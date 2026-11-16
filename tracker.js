@@ -5,6 +5,10 @@ function createPitchTracker() {
   // 거의 사라지고, 배음이 많은 목소리는 걸러낸 뒤에도 원래 높이가 그대로 남음.
   const FLOOR = 80, CEIL = 2600;
   let recent = [], smooth = [], lastRms = 0, holdOff = 0, held = null;
+  // 선 길이: 음의 높이가 정해진 순간의 크기(notePeak, 튕김 잡음이 지나간 뒤)를 기준으로,
+  // 그 크기의 END_RATIO 아래로 줄면 끝냄 → 세게 쳐도 살살 쳐도 같은 시간 울린 음은 길이가 비슷.
+  const END_RATIO = 0.25, MIN_FRAMES = 0;
+  let notePeak = 0, heldFrames = 0, ended = false;
   // 교실 바탕 소리 크기 (시끄러운 교실 대비): 최근 약 6초 동안 배운 소리 크기 중 아래쪽 20% 지점.
   // 또렷한 높이를 따라가는 중(내 칼림바·'아~')에는 배우지 않으므로, 친구들 떠드는 소리만 바탕으로 배움.
   // 바탕 소리보다 1.6배 이상 커야 그리므로, 크롬북 가까이에서 내는 내 소리만 잡힘.
@@ -73,12 +77,15 @@ function createPitchTracker() {
       const stillRinging = Math.max(0.0015, room * 1.5); // 울림이 남아 있다고 볼 크기
 
       // 악기를 튕기는 순간(소리가 갑자기 커질 때)에는 높은 잡음이 섞이므로 잠깐 건너뜀
-      if (rms > loudEnough && rms > lastRms * 1.8) { holdOff = 2; recent = []; held = null; smooth = []; }
+      if (rms > loudEnough && rms > lastRms * 1.8) {
+        holdOff = 2; recent = []; held = null; smooth = []; notePeak = 0; heldFrames = 0; ended = false;
+      }
+      if (ended && rms <= stillRinging) { ended = false; notePeak = rms; }
       lastRms = rms;
 
       let f = -1;
       if (holdOff > 0) holdOff--;
-      else if (rms >= loudEnough) f = detect(buf, sr, rms < room * 2.5);
+      else if (rms >= loudEnough && !ended) f = detect(buf, sr, rms < room * 2.5);
 
       // 같은 음이 울리는 중에 그 음의 1/2, 1/3 … 1/8 높이가 나오면 잘못 읽은 것: 원래 음으로 봄
       if (f > 0 && held != null) {
@@ -94,15 +101,21 @@ function createPitchTracker() {
         recent.push(f); if (recent.length > 3) recent.shift();
         if (recent.length === 3 && recent.every(x => Math.abs(x / f - 1) < 0.06)) {
           smooth.push(median(recent)); if (smooth.length > 5) smooth.shift();
+          if (held == null) { heldFrames = 0; notePeak = rms; }
           val = held = median(smooth); fresh = true;
         }
       } else {
         recent = [];
       }
       // 울림이 남아 있는 동안은 같은 높이로 이어서 그림
-      if (val == null && held != null) {
-        if (rms > stillRinging && holdOff === 0) val = held;
-        else if (rms <= stillRinging) { held = null; smooth = []; }
+      if (val == null && held != null && holdOff === 0 && (rms > stillRinging || heldFrames < MIN_FRAMES)) val = held;
+      // 이 음의 처음 크기의 1/5 아래로 줄면 선을 끝냄 (다음에 새로 칠 때까지 기다림)
+      if (held != null) {
+        heldFrames++;
+        if (heldFrames <= 3 && rms > notePeak) notePeak = rms;
+        if (heldFrames >= MIN_FRAMES && rms < Math.max(stillRinging, notePeak * END_RATIO)) {
+          held = null; smooth = []; val = null; ended = rms > stillRinging;
+        }
       }
       return { val, fresh };
     }

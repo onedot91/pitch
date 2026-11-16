@@ -135,7 +135,18 @@
   .guide { padding: 32px 56px 48px; display: flex; flex-direction: column; gap: 16px; }
   .guide-head { display: flex; justify-content: flex-end; }
   .steps { list-style: none; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 28px 48px; }
-  .steps li { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+  .steps li { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; position: relative; counter-increment: step; }
+  .steps { counter-reset: step; }
+  /* 순서 번호: 도움말 버튼처럼 검은 동그라미 + 노란 그림자 */
+  .steps li::before {
+    content: counter(step);
+    position: absolute; top: 0; left: max(0px, calc(50% - 170px));
+    width: 1.5em; height: 1.5em; padding-bottom: .08em;
+    display: grid; place-items: center;
+    border-radius: 46% 54% 50% 50% / 52% 46% 54% 48%;
+    background: var(--ink); color: var(--paper);
+    box-shadow: 4px 5px 0 var(--yellow);
+  }
   .steps svg { width: 100%; max-width: 200px; height: auto; display: block; }
   .steps span { white-space: nowrap; }
   .steps .hi { color: var(--red); }
@@ -240,7 +251,7 @@
   </div>
 </dialog>
 
-<script src="tracker.js?v=11"></script>
+<script src="tracker.js?v=12"></script>
 <script>
 (() => {
   // 높낮이 기준 (Hz)
