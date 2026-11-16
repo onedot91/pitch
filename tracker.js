@@ -5,7 +5,11 @@ function createPitchTracker() {
   // 거의 사라지고, 배음이 많은 목소리는 걸러낸 뒤에도 원래 높이가 그대로 남음.
   const FLOOR = 80, CEIL = 2600;
   let recent = [], lastRms = 0, holdOff = 0, held = null;
-  let room = 0;   // 교실 바탕 소리 크기 (조용할 때 기준)
+  // 교실 바탕 소리 크기: 최근 약 8초 중 가장 조용했던 순간.
+  // 계속 말하거나 처음부터 소리가 나도 목소리를 '바탕 소리'로 착각하지 않도록 위쪽을 막아 둠.
+  const ROOM_LEN = 256, ROOM_MIN = 0.0015, ROOM_MAX = 0.012;
+  const roomHist = new Float32Array(ROOM_LEN).fill(ROOM_MAX);
+  let roomPos = 0;
 
   // YIN 방식 음높이 찾기
   function detect(x, sr) {
@@ -55,8 +59,10 @@ function createPitchTracker() {
       for (let i = 0; i < buf.length; i++) rms += buf[i] * buf[i];
       rms = Math.sqrt(rms / buf.length);
 
-      // 교실 바탕 소리: 조용해지면 바로 따라 내려가고, 시끄러우면 아주 천천히 올라감
-      room = room === 0 || rms < room ? rms : room * 1.001;
+      roomHist[roomPos] = rms; roomPos = (roomPos + 1) % ROOM_LEN;
+      let room = ROOM_MAX;
+      for (let i = 0; i < ROOM_LEN; i++) if (roomHist[i] < room) room = roomHist[i];
+      room = Math.max(ROOM_MIN, room);
       const loudEnough = Math.max(0.002, room * 1.6);   // 악기 소리로 볼 크기
       const stillRinging = Math.max(0.001, room * 1.25); // 울림이 남아 있다고 볼 크기
 

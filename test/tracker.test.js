@@ -221,6 +221,22 @@ for (const [name, f0] of [['어른 남자 목소리', 120], ['어른 여자 목�
   check('높은 칼림바 + 잡음', low === 0, { lowReadings: low, of: total });
 }
 
+// 12) '시작'을 누를 때 이미 소리를 내고 있던 경우 (앞에 조용한 순간이 없음)
+for (const f0 of [120, 210, 300]) {
+  const x = render(3, x => voice(x, f0, 0, 3));
+  const out = run(x).filter(o => o.t > 0.3);
+  const right = out.filter(o => o.val != null && Math.abs(o.val / f0 - 1) < 0.1).length;
+  check('처음부터 소리 ' + f0 + 'Hz', right / out.length > 0.7, { covered: Math.round(right / out.length * 100) + '%' });
+}
+
+// 13) 쉬지 않고 20초 동안 말하기·노래하기: 끝까지 잡혀야 함
+{
+  const x = render(21, x => { noise(x, 0.002); voice(x, 220, 0.5, 20); });
+  const out = run(x).filter(o => o.t > 15 && o.t < 20.3);
+  const right = out.filter(o => o.val != null && Math.abs(o.val / 220 - 1) < 0.1).length;
+  check('20초 동안 계속 목소리', right / out.length > 0.7, { coveredLast5s: Math.round(right / out.length * 100) + '%' });
+}
+
 let fail = 0;
 for (const r of results) {
   console.log((r.ok ? 'PASS' : 'FAIL') + '  ' + r.name + '  ' + JSON.stringify(r.detail));
