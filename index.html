@@ -84,6 +84,9 @@
   .num { font-size: var(--xl); line-height: .95; font-variant-numeric: tabular-nums; }
   .num small { font-size: var(--l); margin-left: .2em; }
   .num.empty small { display: none; }
+  .num { transition: color .25s; }
+  .num.hi { color: var(--red); }
+  .num.lo { color: var(--blue); }
 
   button {
     font: inherit;
@@ -132,6 +135,7 @@
   </section>
 </main>
 
+<script src="tracker.js"></script>
 <script>
 (() => {
   // 높낮이 기준 (Hz)
@@ -152,7 +156,7 @@
 
   let audioCtx, analyser, stream, buf, timer;
   let history = new Array(HISTORY).fill(null);
-  let recent = [], lastRms = 0, holdOff = 0, held = null;
+  let tracker;
 
   const band = f => f >= SPLIT ? 'hi' : 'lo';
   // 그래프 높이: 낮은 소리는 노란 띠 아래(파랑), 높은 소리는 노란 띠 위(빨강)에만 놓이게
@@ -165,75 +169,10 @@
     return toY(t, h);
   };
 
-  // YIN 방식 음높이 찾기
-  function detect(x, sr) {
-    let rms = 0;
-    for (let i = 0; i < x.length; i++) rms += x[i] * x[i];
-    rms = Math.sqrt(rms / x.length);
-    if (rms < 0.012) return -1;
-
-    const W = x.length >> 1;
-    const tMin = Math.max(2, Math.floor(sr / 2500));
-    const tMax = Math.min(W - 1, Math.ceil(sr / 70));
-    const d = new Float32Array(tMax + 2);
-    for (let t = 1; t <= tMax + 1; t++) {
-      let s = 0;
-      for (let i = 0; i < W; i++) { const v = x[i] - x[i + t]; s += v * v; }
-      d[t] = s;
-    }
-    // 누적 평균 정규화
-    let sum = 0; const c = new Float32Array(tMax + 2); c[0] = 1;
-    for (let t = 1; t <= tMax + 1; t++) { sum += d[t]; c[t] = sum ? d[t] * t / sum : 1; }
-
-    let tau = -1;
-    for (let t = tMin; t <= tMax; t++) {
-      if (c[t] < 0.15) {
-        while (t + 1 <= tMax && c[t + 1] < c[t]) t++;
-        tau = t; break;
-      }
-    }
-    if (tau < 0) return -1;
-    const a = c[tau - 1], b = c[tau], e = c[tau + 1];
-    const den = a + e - 2 * b;
-    const shift = den ? (a - e) / (2 * den) : 0;
-    return sr / (tau + shift);
-  }
-
-  function median(arr) {
-    const s = [...arr].sort((a, b) => a - b);
-    return s[s.length >> 1];
-  }
-
   function tick() {
     analyser.getFloatTimeDomainData(buf);
-
-    // 악기를 튕기는 순간(소리가 갑자기 커질 때)에는 높은 잡음이 섞이므로 잠깐 건너뜀
-    let rms = 0;
-    for (let i = 0; i < buf.length; i++) rms += buf[i] * buf[i];
-    rms = Math.sqrt(rms / buf.length);
-    if (rms > 0.012 && rms > lastRms * 1.8) { holdOff = 2; recent = []; held = null; }
-    lastRms = rms;
-
-    let f = -1;
-    if (holdOff > 0) holdOff--;
-    else f = detect(buf, audioCtx.sampleRate);
-
-    // 같은 높이가 3번 연속 나와야 믿음
-    let val = null;
-    if (f >= 60 && f <= 2600) {
-      recent.push(f); if (recent.length > 3) recent.shift();
-      if (recent.length === 3 && recent.every(x => Math.abs(x / f - 1) < 0.06)) {
-        val = held = median(recent);
-        show(val);
-      }
-    } else {
-      recent = [];
-    }
-    // 울림이 남아 있는 동안은 같은 높이로 이어서 그림
-    if (val == null && held != null) {
-      if (rms > 0.005 && holdOff === 0) val = held;
-      else if (rms <= 0.005) held = null;
-    }
+    const { val, fresh } = tracker.step(buf, audioCtx.sampleRate);
+    if (fresh) show(val);
     history.push(val); history.shift();
     draw();
   }
@@ -243,7 +182,7 @@
     wordEl.className = 'word ' + b;
     wordEl.textContent = b === 'hi' ? '높은 소리' : '낮은 소리';
     numEl.firstChild.textContent = Math.round(f);
-    numEl.classList.remove('empty');
+    numEl.className = 'num ' + b;
   }
 
   function draw() {
@@ -321,6 +260,7 @@
     analyser = audioCtx.createAnalyser();
     analyser.fftSize = 2048;
     buf = new Float32Array(analyser.fftSize);
+    tracker = createPitchTracker();
     src.connect(analyser);
     timer = setInterval(tick, TICK);
     btn.textContent = '멈춤';
