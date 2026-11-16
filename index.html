@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>소리의 높낮이</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f3ead8;
+    --ink: #161616;
+    --blue: #1f3fa8;
+    --red: #e8462b;
+    --yellow: #f5b90f;
+    --green: #2f8a4e;
+    --pink: #f07aa8;
+    --xl: clamp(88px, 12vw, 176px);
+    --l: clamp(26px, 3vw, 40px);
+    --cut: 42px 14px 48px 20px / 22px 44px 18px 40px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Black Han Sans", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    font-size: var(--l);
+    line-height: 1.15;
+    overflow-x: hidden;
+  }
+
+  /* 마티스 컷아웃 장식 */
+  .deco { position: fixed; pointer-events: none; z-index: 0; }
+  .deco.a { top: -40px; left: -30px; width: 150px; transform: rotate(-18deg); fill: var(--green); }
+  .deco.b { bottom: -50px; right: -20px; width: 170px; transform: rotate(14deg); fill: var(--pink); }
+  .deco.c { top: 22px; right: 34%; width: 64px; fill: var(--yellow); transform: rotate(12deg); }
+
+  .app {
+    position: relative; z-index: 1;
+    min-height: 100%;
+    display: grid;
+    grid-template-columns: 1fr minmax(300px, 30%);
+    grid-template-rows: auto 1fr;
+    gap: 40px 48px;
+    padding: 40px 56px 56px;
+  }
+  h1 { font-size: var(--l); font-weight: 400; grid-column: 1 / -1; letter-spacing: .02em; }
+
+  /* 그래프 */
+  .stage {
+    position: relative;
+    border-radius: var(--cut);
+    overflow: hidden;
+    min-height: 360px;
+    box-shadow: 8px 10px 0 var(--ink);
+  }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .tag {
+    position: absolute; left: 20px; z-index: 2;
+    padding: 6px 18px 10px;
+    border-radius: 26px 10px 24px 12px / 12px 24px 10px 26px;
+    background: var(--ink);
+    color: #fff;
+    pointer-events: none;
+  }
+  .tag.hi { top: 18px; }
+  .tag.lo { bottom: 18px; }
+
+  /* 결과 */
+  .side { display: flex; flex-direction: column; gap: 32px; justify-content: center; }
+  .word {
+    align-self: flex-start;
+    padding: 14px 30px 18px;
+    border-radius: var(--cut);
+    background: #fff;
+    color: var(--ink);
+    transition: background .25s, color .25s;
+  }
+  .word.hi { background: var(--red); color: #fff; }
+  .word.mid { background: var(--yellow); color: var(--ink); }
+  .word.lo { background: var(--blue); color: #fff; }
+  .num { font-size: var(--xl); line-height: .95; font-variant-numeric: tabular-nums; }
+  .num small { font-size: var(--l); margin-left: .2em; }
+  .num.empty small { display: none; }
+
+  button {
+    font: inherit;
+    align-self: flex-start;
+    border: 0;
+    cursor: pointer;
+    padding: 20px 52px 24px;
+    border-radius: 60px 22px 56px 26px / 30px 54px 24px 50px;
+    background: var(--ink);
+    color: var(--paper);
+    box-shadow: 6px 8px 0 var(--red);
+    transition: transform .1s, box-shadow .1s;
+  }
+  button:active { transform: translate(4px, 6px); box-shadow: 2px 2px 0 var(--red); }
+  button:focus-visible { outline: 4px solid var(--blue); outline-offset: 6px; }
+  .msg:empty { display: none; }
+  .msg { color: var(--red); }
+
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; padding: 24px 16px 40px; gap: 28px; }
+    .stage { min-height: 300px; }
+    .deco.c { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<svg class="deco a" viewBox="-10 0 120 200" aria-hidden="true"><path d="M50 0C62 30 92 28 82 60C112 58 112 92 86 100C112 120 102 152 76 146C86 176 66 196 50 200C34 196 14 176 24 146C-2 152-12 120 14 100C-12 92-12 58 18 60C8 28 38 30 50 0Z"/></svg>
+<svg class="deco b" viewBox="-10 0 120 200" aria-hidden="true"><path d="M48 0C64 26 90 34 78 62C108 66 106 96 82 104C108 126 96 156 72 148C80 178 62 198 46 198C30 192 18 172 28 148C0 150-8 118 18 104C-8 90-4 62 22 62C14 32 36 24 48 0Z"/></svg>
+<svg class="deco c" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 2L58 34L88 14L70 44L98 52L66 60L84 90L54 70L46 98L40 66L10 84L30 56L2 46L34 40L16 12L44 30Z"/></svg>
+
+<main class="app">
+  <h1>소리의 높낮이</h1>
+
+  <section class="stage" aria-label="소리 높낮이 그래프">
+    <canvas id="graph"></canvas>
+    <div class="tag hi">높다</div>
+    <div class="tag lo">낮다</div>
+  </section>
+
+  <section class="side">
+    <div class="word" id="word">소리를 내 보세요</div>
+    <div class="num empty" id="num">?<small>Hz</small></div>
+    <button id="btn" type="button">시작</button>
+    <div class="msg" id="msg" role="status"></div>
+  </section>
+</main>
+
+<script>
+(() => {
+  // 높낮이 기준 (Hz)
+  const LOW = 300, HIGH = 700;
+  const FMIN = 80, FMAX = 2000;           // 그래프 아래끝/위끝
+  const HISTORY = 160;                    // 약 8초 (50ms 간격)
+
+  const COLORS = { hi: '#e8462b', mid: '#f5b90f', lo: '#1f3fa8', ink: '#161616' };
+
+  const canvas = document.getElementById('graph');
+  const ctx = canvas.getContext('2d');
+  const wordEl = document.getElementById('word');
+  const numEl = document.getElementById('num');
+  const btn = document.getElementById('btn');
+  const msg = document.getElementById('msg');
+
+  let audioCtx, analyser, stream, buf, timer;
+  let history = new Array(HISTORY).fill(null);
+  let recent = [];
+
+  const band = f => f >= HIGH ? 'hi' : f < LOW ? 'lo' : 'mid';
+  const yOf = (f, h) => {
+    const t = (Math.log(f) - Math.log(FMIN)) / (Math.log(FMAX) - Math.log(FMIN));
+    return h - Math.min(1, Math.max(0, t)) * h;
+  };
+
+  // YIN 방식 음높이 찾기
+  function detect(x, sr) {
+    let rms = 0;
+    for (let i = 0; i < x.length; i++) rms += x[i] * x[i];
+    rms = Math.sqrt(rms / x.length);
+    if (rms < 0.012) return -1;
+
+    const W = x.length >> 1;
+    const tMin = Math.max(2, Math.floor(sr / 2500));
+    const tMax = Math.min(W - 1, Math.ceil(sr / 70));
+    const d = new Float32Array(tMax + 2);
+    for (let t = 1; t <= tMax + 1; t++) {
+      let s = 0;
+      for (let i = 0; i < W; i++) { const v = x[i] - x[i + t]; s += v * v; }
+      d[t] = s;
+    }
+    // 누적 평균 정규화
+    let sum = 0; const c = new Float32Array(tMax + 2); c[0] = 1;
+    for (let t = 1; t <= tMax + 1; t++) { sum += d[t]; c[t] = sum ? d[t] * t / sum : 1; }
+
+    let tau = -1;
+    for (let t = tMin; t <= tMax; t++) {
+      if (c[t] < 0.15) {
+        while (t + 1 <= tMax && c[t + 1] < c[t]) t++;
+        tau = t; break;
+      }
+    }
+    if (tau < 0) return -1;
+    const a = c[tau - 1], b = c[tau], e = c[tau + 1];
+    const den = a + e - 2 * b;
+    const shift = den ? (a - e) / (2 * den) : 0;
+    return sr / (tau + shift);
+  }
+
+  function median(arr) {
+    const s = [...arr].sort((a, b) => a - b);
+    return s[s.length >> 1];
+  }
+
+  function tick() {
+    analyser.getFloatTimeDomainData(buf);
+    const f = detect(buf, audioCtx.sampleRate);
+    let val = null;
+    if (f > 0 && f >= 60 && f <= 2600) {
+      recent.push(f); if (recent.length > 5) recent.shift();
+      val = median(recent);
+      show(val);
+    } else {
+      recent = [];
+    }
+    history.push(val); history.shift();
+    draw();
+  }
+
+  function show(f) {
+    const b = band(f);
+    wordEl.className = 'word ' + b;
+    wordEl.textContent = b === 'hi' ? '높은 소리' : b === 'lo' ? '낮은 소리' : '중간 소리';
+    numEl.firstChild.textContent = Math.round(f);
+    numEl.classList.remove('empty');
+  }
+
+  function draw() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+      canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // 세 개의 색 띠 (종이를 오려 붙인 듯 살짝 물결)
+    const yHi = yOf(HIGH, h), yLo = yOf(LOW, h);
+    const wave = (y, amp, seed) => {
+      ctx.lineTo(w, y);
+      for (let i = 12; i >= 0; i--) {
+        const x = (w * i) / 12;
+        ctx.lineTo(x, y + Math.sin(x / 70 + seed) * amp);
+      }
+    };
+    ctx.fillStyle = COLORS.lo; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = COLORS.mid;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(w, 0); wave(yLo, 7, 1); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = COLORS.hi;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(w, 0); wave(yHi, 7, 3); ctx.closePath(); ctx.fill();
+
+    // 지나간 소리: 하얀 동그라미
+    const step = (w - 70) / (HISTORY - 1);
+    const r = Math.max(5, Math.min(10, h / 45));
+    for (let i = 0; i < HISTORY; i++) {
+      const f = history[i];
+      if (f == null) continue;
+      const x = 20 + i * step, y = yOf(f, h);
+      ctx.globalAlpha = 0.35 + 0.65 * (i / HISTORY);
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // 지금 소리: 검은 별
+    const last = history[HISTORY - 1];
+    if (last != null) star(20 + (HISTORY - 1) * step, yOf(last, h), Math.max(22, h / 14));
+  }
+
+  function star(cx, cy, R) {
+    ctx.save();
+    ctx.translate(cx, cy); ctx.rotate(0.2);
+    ctx.fillStyle = COLORS.ink;
+    ctx.beginPath();
+    for (let i = 0; i < 16; i++) {
+      const rr = i % 2 ? R * 0.45 : R * (i % 4 ? 0.9 : 1);
+      const a = (i / 16) * Math.PI * 2;
+      ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  async function start() {
+    msg.textContent = '';
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+      });
+    } catch (e) {
+      msg.textContent = '마이크를 허용해 주세요';
+      return;
+    }
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = audioCtx.createMediaStreamSource(stream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    buf = new Float32Array(analyser.fftSize);
+    src.connect(analyser);
+    timer = setInterval(tick, 50);
+    btn.textContent = '멈춤';
+  }
+
+  function stop() {
+    clearInterval(timer);
+    stream && stream.getTracks().forEach(t => t.stop());
+    audioCtx && audioCtx.close();
+    audioCtx = null;
+    btn.textContent = '시작';
+  }
+
+  btn.addEventListener('click', () => audioCtx ? stop() : start());
+  window.addEventListener('resize', draw);
+  draw();
+})();
+</script>
+</body>
+</html>
