@@ -103,6 +103,11 @@
     transition: transform .1s, box-shadow .1s;
   }
   button:active { transform: translate(4px, 6px); box-shadow: 2px 2px 0 var(--red); }
+  /* 시작(검정 ▶) / 멈춤(빨강 ■) */
+  #btn { display: inline-flex; align-items: center; gap: .35em; }
+  #btn .ico { width: .8em; height: .8em; flex: none; }
+  #btn.running { background: var(--red); color: #fff; box-shadow: 6px 8px 0 var(--ink); }
+  #btn.running:active { box-shadow: 2px 2px 0 var(--ink); }
   button:focus-visible { outline: 4px solid var(--blue); outline-offset: 6px; }
 
   /* 도움말 */
@@ -170,7 +175,7 @@
   <section class="side">
     <div class="word" id="word">소리를 내요</div>
     <div class="num empty" id="num">?<small>Hz</small></div>
-    <button id="btn" type="button">시작</button>
+    <button id="btn" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5L21 12L6 20.5Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg><span>시작</span></button>
     <div class="msg" id="msg" role="status"></div>
   </section>
 </main>
@@ -235,7 +240,7 @@
   </div>
 </dialog>
 
-<script src="tracker.js?v=9"></script>
+<script src="tracker.js?v=10"></script>
 <script>
 (() => {
   // 높낮이 기준 (Hz)
@@ -253,6 +258,8 @@
   const numEl = document.getElementById('num');
   const btn = document.getElementById('btn');
   const msg = document.getElementById('msg');
+  const START_HTML = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5L21 12L6 20.5Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg><span>시작</span>';
+  const STOP_HTML = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3" fill="currentColor"/></svg><span>멈춤</span>';
 
   let audioCtx, analyser, stream, buf, timer;
   let history = new Array(HISTORY).fill(null);
@@ -370,7 +377,7 @@
     }
     node.connect(analyser);
     timer = setInterval(tick, TICK);
-    btn.textContent = '멈춤';
+    btn.innerHTML = STOP_HTML; btn.classList.add('running');
   }
 
   function stop() {
@@ -378,7 +385,7 @@
     stream && stream.getTracks().forEach(t => t.stop());
     audioCtx && audioCtx.close();
     audioCtx = null;
-    btn.textContent = '시작';
+    btn.innerHTML = START_HTML; btn.classList.remove('running');
   }
 
   btn.addEventListener('click', () => audioCtx ? stop() : start());

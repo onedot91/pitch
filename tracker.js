@@ -12,7 +12,7 @@ function createPitchTracker() {
   let roomPos = 0;
 
   // YIN 방식 음높이 찾기
-  function detect(x, sr) {
+  function detect(x, sr, quiet) {
     const W = x.length >> 1;
     const tMin = Math.max(2, Math.floor(sr / CEIL));
     const tMax = Math.min(W - 1, Math.ceil(sr / (FLOOR * 0.9)));
@@ -27,7 +27,7 @@ function createPitchTracker() {
 
     let tau = -1;
     for (let t = tMin; t <= tMax; t++) {
-      if (c[t] < 0.15) {
+      if (c[t] < (quiet ? 0.25 : 0.15)) {
         while (t + 1 <= tMax && c[t + 1] < c[t]) t++;
         tau = t; break;
       }
@@ -35,7 +35,7 @@ function createPitchTracker() {
     // 작은 소리라 잡음이 섞이면 0.15 아래로 안 내려갈 수 있음.
     // 가장 깊은 골만 고르면 2배·6배 긴 주기(= 1/2, 1/6 높이)를 잡을 수 있으므로,
     // 가장 깊은 골과 비슷하게 깊은 골 중 '가장 짧은 주기'를 고름.
-    if (tau < 0) {
+    if (tau < 0 && !quiet) {   // 작은 소리에는 이 방법을 쓰지 않음
       let gmin = 1;
       for (let t = tMin; t <= tMax; t++) if (c[t] < gmin) gmin = c[t];
       if (gmin < 0.3) {
@@ -63,8 +63,9 @@ function createPitchTracker() {
       let room = ROOM_MAX;
       for (let i = 0; i < ROOM_LEN; i++) if (roomHist[i] < room) room = roomHist[i];
       room = Math.max(ROOM_MIN, room);
-      // 민감도: 바탕 소리보다 2.2배 이상 커야 악기·목소리로 봄 (작은 잡음에 덜 흔들리게)
-      const loudEnough = Math.max(0.003, room * 2.2);
+      // 민감도: 바탕 소리보다 1.6배 이상 크면 악기·목소리로 봄.
+      // 다만 2.5배가 안 되는 작은 소리는 '주기가 아주 뚜렷할 때만' 믿음 (작은 낮은 도는 잡고, 잡음은 거름)
+      const loudEnough = Math.max(0.002, room * 1.6);
       const stillRinging = Math.max(0.0015, room * 1.5); // 울림이 남아 있다고 볼 크기
 
       // 악기를 튕기는 순간(소리가 갑자기 커질 때)에는 높은 잡음이 섞이므로 잠깐 건너뜀
@@ -73,7 +74,7 @@ function createPitchTracker() {
 
       let f = -1;
       if (holdOff > 0) holdOff--;
-      else if (rms >= loudEnough) f = detect(buf, sr);
+      else if (rms >= loudEnough) f = detect(buf, sr, rms < room * 2.5);
 
       // 같은 음이 울리는 중에 그 음의 1/2, 1/3 … 1/8 높이가 나오면 잘못 읽은 것: 원래 음으로 봄
       if (f > 0 && held != null) {

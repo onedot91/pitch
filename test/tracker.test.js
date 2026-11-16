@@ -222,6 +222,20 @@ for (const f0 of [120, 210, 300]) {
   check('20초 동안 계속 목소리', right / out.length > 0.7, { coveredLast5s: Math.round(right / out.length * 100) + '%' });
 }
 
+// 14) 가장 긴 건반 '낮은 도'(262Hz): 크롬북 마이크에 작게 들어오고 교실 잡음이 조금 있을 때
+{
+  const results = [];
+  for (const [fund, room] of [[0.03, 0.004], [0.02, 0.004], [0.02, 0.006], [0.015, 0.003], [0.005, 0.002], [0.012, 0.004]]) {
+    const x = render(4.5, x => {
+      noise(x, room);
+      for (let k = 0; k < 4; k++) { const t = 0.4 + k; sine(x, 262, fund, t, 0.6, 1); sine(x, 262 * 5.9, fund * 2, t, 0.05, 0.3); }
+    });
+    const s = score(run(x), [0, 1, 2, 3].map(k => [262, 0.4 + k]), 1);
+    results.push({ fund, room, caught: s.filter(r => r.right > 0).length + '/4', wrong: s.reduce((a, r) => a + r.wrong, 0) });
+  }
+  check('작게 들어온 낮은 도', results.every(r => r.caught === '4/4' && r.wrong === 0), results);
+}
+
 let fail = 0;
 for (const r of results) {
   console.log((r.ok ? 'PASS' : 'FAIL') + '  ' + r.name + '  ' + JSON.stringify(r.detail));
