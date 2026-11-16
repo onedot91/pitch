@@ -34,7 +34,7 @@
 
   /* 마티스 컷아웃 장식 */
   .deco { position: fixed; pointer-events: none; z-index: 0; }
-  .deco.a { top: -50px; right: -30px; width: 150px; transform: rotate(160deg); fill: var(--green); }
+  .deco.a { bottom: -70px; left: -40px; width: 150px; transform: rotate(24deg); fill: var(--green); }
   .deco.b { bottom: -50px; right: -20px; width: 170px; transform: rotate(14deg); fill: var(--pink); }
   .deco.c { top: 30px; right: 30%; width: 70px; fill: var(--yellow); transform: rotate(12deg); }
 
@@ -47,7 +47,7 @@
     gap: 40px 48px;
     padding: 40px 56px 56px;
   }
-  h1 { font-size: var(--l); font-weight: 400; grid-column: 1 / -1; letter-spacing: .02em; }
+  h1 { font-size: var(--l); font-weight: 400; letter-spacing: .02em; }
 
   /* 그래프 */
   .stage {
@@ -102,6 +102,36 @@
   }
   button:active { transform: translate(4px, 6px); box-shadow: 2px 2px 0 var(--red); }
   button:focus-visible { outline: 4px solid var(--blue); outline-offset: 6px; }
+
+  /* 도움말 */
+  .top { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+  button.help {
+    align-self: center;
+    width: 84px; height: 84px; padding: 0 0 6px;
+    flex: none;
+    border-radius: 46% 54% 50% 50% / 52% 46% 54% 48%;
+    box-shadow: 5px 7px 0 var(--yellow);
+  }
+  button.help:active { box-shadow: 2px 2px 0 var(--yellow); }
+  dialog {
+    border: 0; padding: 0; margin: auto;
+    width: min(1100px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    border-radius: var(--cut);
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: 10px 12px 0 var(--ink);
+    font-size: var(--l);
+  }
+  dialog::backdrop { background: rgba(22, 22, 22, .6); }
+  .guide { padding: 48px 56px 56px; display: flex; flex-direction: column; gap: 40px; }
+  .guide-head { display: flex; justify-content: flex-end; }
+  .steps { list-style: none; padding: 0; display: grid; grid-template-columns: 1fr 1fr 1.6fr; gap: 40px; }
+  .steps li { display: flex; flex-direction: column; align-items: center; gap: 24px; text-align: center; }
+  .steps svg { width: 100%; max-width: 280px; height: auto; display: block; }
+  .steps span { white-space: nowrap; }
+  .steps .hi { color: var(--red); }
+  .steps .lo { color: var(--blue); }
   .msg:empty { display: none; }
   .msg { color: var(--red); }
 
@@ -109,6 +139,10 @@
     .app { grid-template-columns: 1fr; padding: 24px 16px 40px; gap: 28px; }
     .stage { min-height: 300px; }
     .deco.c { display: none; }
+    button.help { width: 64px; height: 64px; }
+    .guide { padding: 24px 20px 32px; gap: 24px; }
+    .steps { grid-template-columns: 1fr; gap: 32px; }
+    .steps svg { max-width: 220px; }
   }
 </style>
 </head>
@@ -119,7 +153,10 @@
 <svg class="deco c" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 2L58 34L88 14L70 44L98 52L66 60L84 90L54 70L46 98L40 66L10 84L30 56L2 46L34 40L16 12L44 30Z"/></svg>
 
 <main class="app">
-  <h1>소리의 높낮이 측정하기</h1>
+  <header class="top">
+    <h1>소리의 높낮이 측정하기</h1>
+    <button class="help" id="helpBtn" type="button" aria-label="사용법" aria-haspopup="dialog">?</button>
+  </header>
 
   <section class="stage" aria-label="소리 높낮이 그래프">
     <canvas id="graph"></canvas>
@@ -134,6 +171,53 @@
     <div class="msg" id="msg" role="status"></div>
   </section>
 </main>
+
+<dialog id="help" aria-label="사용법">
+  <div class="guide">
+    <div class="guide-head"><button type="button" id="helpClose">닫기</button></div>
+    <ol class="steps">
+      <li>
+        <svg viewBox="0 0 240 180" aria-hidden="true">
+          <path d="M40 74C40 52 62 46 120 46C186 46 206 52 206 80C206 114 190 126 120 126C58 126 40 114 40 74Z" fill="#e8462b" transform="translate(8 9)"/>
+          <path d="M40 74C40 52 62 46 120 46C186 46 206 52 206 80C206 114 190 126 120 126C58 126 40 114 40 74Z" fill="#161616"/>
+          <text x="123" y="100" text-anchor="middle" font-family="Black Han Sans, sans-serif" font-size="38" fill="#f3ead8">시작</text>
+          <path d="M200 10L205 28L222 18L212 34L230 40L211 44L220 60L204 50L198 68L194 49L177 57L188 42L172 34L190 31L181 15L196 26Z" fill="#f5b90f"/>
+          <path transform="translate(26 8)" d="M96 176C92 160 96 146 108 140L112 116C113 108 124 108 125 116L127 136C140 134 152 140 152 154L150 176Z" fill="#fff" stroke="#161616" stroke-width="4" stroke-linejoin="round"/>
+        </svg>
+        <div>시작을 눌러요</div>
+      </li>
+      <li>
+        <svg viewBox="0 0 240 180" aria-hidden="true">
+          <path d="M18 62Q18 50 30 50L142 50Q154 50 153 62L145 152Q143 164 131 164L41 164Q29 164 27 152Z" fill="#f5b90f"/>
+          <g fill="#fff" stroke="#161616" stroke-width="3">
+            <rect x="38" y="58" width="10" height="44" rx="5"/><rect x="54" y="58" width="10" height="58" rx="5"/>
+            <rect x="70" y="58" width="10" height="72" rx="5"/><rect x="86" y="58" width="10" height="84" rx="5"/>
+            <rect x="102" y="58" width="10" height="72" rx="5"/><rect x="118" y="58" width="10" height="58" rx="5"/>
+          </g>
+          <rect x="176" y="46" width="30" height="124" rx="15" fill="#2f8a4e" transform="rotate(14 191 108)"/>
+          <g fill="none" stroke="#161616" stroke-width="6" stroke-linecap="round">
+            <path d="M168 18q12 12 0 24"/><path d="M184 8q22 22 0 44"/>
+          </g>
+        </svg>
+        <div>악기를 연주해요</div>
+      </li>
+      <li>
+        <svg viewBox="0 0 240 180" aria-hidden="true">
+          <defs><clipPath id="g"><path d="M20 30Q20 14 44 14L208 12Q222 12 222 30L220 152Q220 168 200 168L36 170Q20 170 20 152Z"/></clipPath></defs>
+          <g clip-path="url(#g)">
+            <rect width="240" height="180" fill="#1f3fa8"/>
+            <path d="M0 0H240V104Q180 96 120 104T0 102Z" fill="#f5b90f"/>
+            <path d="M0 0H240V84Q180 76 120 84T0 82Z" fill="#e8462b"/>
+          </g>
+          <path d="M44 148H76V126H104V60H134V40H170" fill="none" stroke="#161616" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/>
+          <path d="M44 148H76V126H104V60H134V40H170" fill="none" stroke="#fff" stroke-width="11" stroke-linejoin="round" stroke-linecap="round"/>
+          <path d="M184 40L188 28L196 36L200 24L204 38L216 34L208 44L218 52L204 50L200 62L194 50L184 56L188 46L176 42Z" fill="#161616"/>
+        </svg>
+        <div><span class="hi">위는 높은 소리</span><br><span class="lo">아래는 낮은 소리</span></div>
+      </li>
+    </ol>
+  </div>
+</dialog>
 
 <script src="tracker.js"></script>
 <script>
@@ -275,6 +359,12 @@
   }
 
   btn.addEventListener('click', () => audioCtx ? stop() : start());
+
+  // 사용법
+  const help = document.getElementById('help');
+  document.getElementById('helpBtn').addEventListener('click', () => help.showModal());
+  document.getElementById('helpClose').addEventListener('click', () => help.close());
+  help.addEventListener('click', e => { if (e.target === help) help.close(); });
   window.addEventListener('resize', draw);
   draw();
 })();
