@@ -197,7 +197,6 @@
             <rect x="70" y="58" width="10" height="72" rx="5"/><rect x="86" y="58" width="10" height="84" rx="5"/>
             <rect x="102" y="58" width="10" height="72" rx="5"/><rect x="118" y="58" width="10" height="58" rx="5"/>
           </g>
-          <rect x="176" y="46" width="30" height="124" rx="15" fill="#2f8a4e" transform="rotate(14 191 108)"/>
           <g fill="none" stroke="#161616" stroke-width="6" stroke-linecap="round">
             <path d="M168 18q12 12 0 24"/><path d="M184 8q22 22 0 44"/>
           </g>
@@ -222,15 +221,15 @@
   </div>
 </dialog>
 
-<script src="tracker.js?v=8"></script>
+<script src="tracker.js?v=9"></script>
 <script>
 (() => {
   // 높낮이 기준 (Hz)
-  // 솔(392)과 라(440) 사이를 경계로: 도레미파솔 = 낮은 소리, 라부터 = 높은 소리 (칼림바·붐웨커 공통)
+  // 솔(392)과 라(440) 사이를 경계로: 도레미파솔 = 낮은 소리, 라부터 = 높은 소리
   const SPLIT = 415;
   const FMIN = 150, FMAX = 1500;           // 그래프 아래끝/위끝
-  const TICK = 20;                        // 20ms마다 측정 (짧은 붐웨커 소리도 잡게)
-  const HISTORY = 400;                    // 약 8초
+  const TICK = 30;                        // 30ms마다 측정
+  const HISTORY = 270;                    // 약 8초
 
   const COLORS = { hi: '#e8462b', mid: '#f5b90f', lo: '#1f3fa8', ink: '#161616' };
 
@@ -243,7 +242,6 @@
 
   let audioCtx, analyser, stream, buf, timer;
   let history = new Array(HISTORY).fill(null);
-  let noteOf = new Array(HISTORY).fill(-1);   // 각 칸이 어느 음의 시작 부분인지
   let tracker;
 
   const band = f => f >= SPLIT ? 'hi' : 'lo';
@@ -259,12 +257,9 @@
 
   function tick() {
     analyser.getFloatTimeDomainData(buf);
-    const { val, fresh, note, rewrite } = tracker.step(buf, audioCtx.sampleRate);
-    // 음의 시작 부분은 높이가 정해진 뒤에 한꺼번에 채워 그림
-    if (rewrite) for (let i = 0; i < HISTORY; i++) if (noteOf[i] === note) history[i] = val;
+    const { val, fresh } = tracker.step(buf, audioCtx.sampleRate);
     if (fresh) show(val);
     history.push(val); history.shift();
-    noteOf.push(note); noteOf.shift();
     draw();
   }
 
@@ -301,7 +296,7 @@
 
     // 지나간 소리: 하얀 종이 띠 (가까운 소리끼리는 이어서)
     const step = (w - 70) / (HISTORY - 1);
-    const r = Math.max(5, Math.min(10, h / 45));
+    const r = Math.max(4, Math.min(7, h / 70));   // 선 반쪽 두께
     ctx.lineCap = ctx.lineJoin = 'round';
     ctx.beginPath();
     let prev = -1;
@@ -309,11 +304,11 @@
       const f = history[i];
       if (f == null) continue;
       const x = 20 + i * step, y = yOf(f, h);
-      if (prev >= 0 && i - prev <= 30) ctx.lineTo(x, y);
+      if (prev >= 0 && i - prev <= 20) ctx.lineTo(x, y);
       else { ctx.moveTo(x, y); ctx.lineTo(x + 0.1, y); }
       prev = i;
     }
-    ctx.strokeStyle = COLORS.ink; ctx.lineWidth = r * 2 + 6; ctx.stroke();
+    ctx.strokeStyle = COLORS.ink; ctx.lineWidth = r * 2 + 5; ctx.stroke();
     ctx.strokeStyle = '#fff'; ctx.lineWidth = r * 2; ctx.stroke();
 
     // 지금 소리: 검은 별

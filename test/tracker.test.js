@@ -1,7 +1,7 @@
 // 가짜 악기 소리로 측정기를 시험함.  실행: node test/tracker.test.js
 const { createPitchTracker } = require('../tracker.js');
 
-const SR = 48000, WIN = 2048, TICK = 0.02, SPLIT = 415;
+const SR = 48000, WIN = 2048, TICK = 0.03, SPLIT = 415;
 
 // 시드 고정 난수 (매번 같은 결과)
 let seed = 1;
@@ -27,13 +27,6 @@ const kalimba = (x, f, t0, loud = 1) => {
   sine(x, f * 5.9, 0.6 * loud, t0, 0.05, 0.3);
   sine(x, f * 16.5, 0.3 * loud, t0, 0.02, 0.1);
 };
-// 붐웨커: 짧게 울리는 관 + 때리는 소리
-const boom = (x, f, t0, loud = 1) => {
-  sine(x, f, 0.35 * loud, t0, 0.18, 0.7);
-  sine(x, f * 2, 0.15 * loud, t0, 0.1, 0.5);
-  noise(x, 0.4 * loud, t0, 0.04, 0.01);
-};
-
 // 페이지와 같은 거르개: 180Hz 아래를 깎는 고역 통과 필터 2단 (Web Audio BiquadFilter와 같은 식)
 function highpass(input, f0 = 180, q = Math.SQRT1_2) {
   const w = 2 * Math.PI * f0 / SR, al = Math.sin(w) / (2 * q), cw = Math.cos(w);
@@ -76,14 +69,12 @@ function score(out, notes, spacing) {
 const results = [];
 function check(name, ok, detail) { results.push({ name, ok, detail }); }
 
-// 1) 칼림바·붐웨커 음계 (보통 크기)
+// 1) 칼림바 음계 (보통 크기)
 {
   const kal = [262, 294, 330, 349, 392, 440, 494, 523, 587, 659, 784, 880, 1047, 1175, 1319];
-  const bw = [262, 294, 330, 349, 392, 440, 494, 523];
   const sp = 0.8;
   const xk = render(kal.length * sp + 0.5, x => { noise(x, 0.002); kal.forEach((f, k) => kalimba(x, f, 0.2 + k * sp)); });
-  const xb = render(bw.length * sp + 0.5, x => { noise(x, 0.002); bw.forEach((f, k) => boom(x, f, 0.2 + k * sp)); });
-  for (const [name, x, notes] of [['칼림바 음계', xk, kal], ['붐웨커 음계', xb, bw]]) {
+  for (const [name, x, notes] of [['칼림바 음계', xk, kal]]) {
     const s = score(run(x), notes.map((f, k) => [f, 0.2 + k * sp]), sp);
     const bad = s.filter(r => r.right === 0 || r.wrong > 0 || !r.bandOk);
     check(name, bad.length === 0, bad.length ? bad : 'all ' + s.length + ' notes OK');
@@ -102,18 +93,18 @@ function check(name, ok, detail) { results.push({ name, ok, detail }); }
   check('웅웅거림 속 칼림바', low === 0 && swaps === 0, { lowReadings: low, upDownSwaps: swaps });
 }
 
-// 3) 손바닥에 붐웨커 칠 때 '퉁' 하는 낮은 소리(90Hz)
+// 3) 책상 '퉁' 하는 낮은 소리(90Hz)가 섞인 칼림바
 {
   const notes = [440, 523, 440, 523];
   const sp = 0.7;
   const x = render(notes.length * sp + 0.5, x => {
     noise(x, 0.002);
-    notes.forEach((f, k) => { const t = 0.2 + k * sp; boom(x, f, t); sine(x, 90, 0.5, t, 0.12, 0.6); });
+    notes.forEach((f, k) => { const t = 0.2 + k * sp; kalimba(x, f, t); sine(x, 90, 0.5, t, 0.12, 0.6); });
   });
   const out = run(x);
   const low = out.filter(o => o.val != null && o.val < 200).length;
   const s = score(out, notes.map((f, k) => [f, 0.2 + k * sp]), sp);
-  check('퉁 소리 섞인 붐웨커', low === 0 && s.every(r => r.right > 0), { lowReadings: low, notes: s.map(r => r.f + ':' + r.right) });
+  check('퉁 소리 섞인 칼림바', low === 0 && s.every(r => r.right > 0), { lowReadings: low, notes: s.map(r => r.f + ':' + r.right) });
 }
 
 // 4) 작게 연주한 칼림바 (멀리 있는 마이크)
@@ -133,15 +124,6 @@ function check(name, ok, detail) { results.push({ name, ok, detail }); }
   const x = render(3, x => { noise(x, 0.003); hum(x, 100, 0.004); });
   const n = run(x).filter(o => o.val != null).length;
   check('조용한 교실(소리 없음)', n === 0, { readings: n });
-}
-
-// 6) 작게 친 붐웨커
-{
-  const notes = [262, 392, 440, 523];
-  const sp = 0.7;
-  const x = render(notes.length * sp + 0.5, x => { noise(x, 0.0008); notes.forEach((f, k) => boom(x, f, 0.2 + k * sp, 0.06)); });
-  const s = score(run(x), notes.map((f, k) => [f, 0.2 + k * sp]), sp);
-  check('작은 붐웨커 소리', s.every(r => r.right > 0 && r.wrong === 0 && r.bandOk), s.map(r => r.f + ':' + r.right + '/' + r.wrong));
 }
 
 // 7) 박수·부스럭 소리(음높이 없는 소리)는 그리면 안 됨
@@ -238,26 +220,6 @@ for (const f0 of [120, 210, 300]) {
   const out = run(x).filter(o => o.t > 15 && o.t < 20.3);
   const right = out.filter(o => o.val != null && Math.abs(o.val / 220 - 1) < 0.1).length;
   check('20초 동안 계속 목소리', right / out.length > 0.7, { coveredLast5s: Math.round(right / out.length * 100) + '%' });
-}
-
-// 14) 짧게 '탁' 치고 끝나는 붐웨커 (울림이 0.1~0.2초)
-{
-  let missed = [], wrong = 0, total = 0;
-  for (const tau of [0.02, 0.03, 0.05, 0.08]) for (const loud of [1, 0.3]) {
-    const notes = [262, 330, 392, 440, 494, 523];
-    const sp = 0.5;
-    const x = render(notes.length * sp + 0.5, x => {
-      noise(x, 0.002);
-      notes.forEach((f, k) => {
-        const t = 0.3 + k * sp;
-        sine(x, f, 0.35 * loud, t, tau, 0.4); sine(x, f * 2, 0.15 * loud, t, tau * 0.7, 0.3); sine(x, f * 3, 0.08 * loud, t, tau * 0.5, 0.2);
-        noise(x, 0.5 * loud, t, 0.03, 0.006);
-      });
-    });
-    const s = score(run(x), notes.map((f, k) => [f, 0.3 + k * sp]), sp);
-    for (const r of s) { total++; if (r.right === 0) missed.push(r.f + '@tau' + tau + (loud < 1 ? 'q' : '')); wrong += r.wrong; }
-  }
-  check('짧은 붐웨커', missed.length === 0 && wrong === 0, { missed: missed.length + '/' + total, examples: missed.slice(0, 6), wrong });
 }
 
 let fail = 0;
