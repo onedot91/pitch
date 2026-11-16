@@ -178,6 +178,49 @@ function check(name, ok, detail) { results.push({ name, ok, detail }); }
   check('큰 웅웅거림 + 작은 칼림바', low === 0 && s.every(r => r.right > 0 && r.wrong === 0), { lowReadings: low, notes: s.map(r => r.f + ':' + r.right + '/' + r.wrong) });
 }
 
+// 목소리 흉내: 기본음 + 배음 여러 개, 음높이가 살짝 오르내림, 음절마다 끊김
+function voice(x, f0, t0, dur, amp = 0.08) {
+  let ph = 0;
+  const a = Math.floor(t0 * SR), b = Math.floor((t0 + dur) * SR);
+  for (let i = a; i < b; i++) {
+    const t = (i - a) / SR;
+    const f = f0 * (1 + 0.06 * Math.sin(2 * Math.PI * 0.7 * t)) * (1 + 0.01 * Math.sin(2 * Math.PI * 5 * t));
+    ph += 2 * Math.PI * f / SR;
+    const env = Math.min(1, t / 0.03, (dur - t) / 0.03) * (0.6 + 0.4 * Math.abs(Math.sin(2 * Math.PI * 2.5 * t)));
+    let v = 0;
+    for (let h = 1; h <= 10; h++) v += Math.sin(h * ph) / h;
+    x[i] += amp * env * v;
+  }
+}
+
+// 10) 목소리: 어른 남자(120Hz)·어른 여자(210Hz)·어린이(300Hz)가 '아~' 하고 말하기
+for (const [name, f0] of [['어른 남자 목소리', 120], ['어른 여자 목소리', 210], ['어린이 목소리', 300]]) {
+  const x = render(3.6, x => { noise(x, 0.002); voice(x, f0, 0.3, 3); });
+  const out = run(x).filter(o => o.t > 0.5 && o.t < 3.2);
+  const vals = out.filter(o => o.val != null);
+  const right = vals.filter(o => Math.abs(o.val / f0 - 1) < 0.1).length;
+  check(name, right / out.length > 0.7 && right === vals.length,
+    { covered: Math.round(right / out.length * 100) + '%', wrong: vals.filter(o => Math.abs(o.val / f0 - 1) >= 0.1).map(o => Math.round(o.val)).slice(0, 6) });
+}
+
+// 11) 높은 칼림바 음 + 교실 잡음: 낮은 소리로 떨어지면 안 됨 (1/6 높이로 잘못 읽는 문제)
+{
+  let low = 0, total = 0;
+  for (const f of [1047, 1175, 1319, 1568]) for (const nz of [0.002, 0.005, 0.01]) for (const p2 of [0, 0.5]) {
+    const x = render(4.2, x => {
+      for (let k = 0; k < 4; k++) {
+        const t = 0.2 + k;
+        sine(x, f, 0.06, t, 0.35, 0.9);
+        if (p2) sine(x, f * 2.013, p2 * 0.06, t, 0.35, 0.9);
+        sine(x, f * 5.9, 0.1, t, 0.04, 0.3);
+      }
+      noise(x, nz);
+    });
+    for (const o of run(x)) if (o.val != null) { total++; if (o.val < SPLIT) low++; }
+  }
+  check('높은 칼림바 + 잡음', low === 0, { lowReadings: low, of: total });
+}
+
 let fail = 0;
 for (const r of results) {
   console.log((r.ok ? 'PASS' : 'FAIL') + '  ' + r.name + '  ' + JSON.stringify(r.detail));
